@@ -50,6 +50,7 @@ theorem bucket_index_is_in_bounds (hist: AnsHistogram) (inv: hist.invariant) (st
             apply Nat.pow_div <;> scalar_tac
     assumption
 
+set_option maxHeartbeats 1000000
 theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.invariant) (br : bit_reader.BitReader) (state : Std.U32) :
     self.read br state ⦃ r => True ⦄
 :=
@@ -66,4 +67,8 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
       cases this <;> scalar_tac
     . have : map_to_alias.val = 0 ∨ map_to_alias.val = 1 := by scalar_tac
       cases this <;> scalar_tac
-    <;> sorry
+    . have : map_to_alias.val = 0 ∨ map_to_alias.val = 1 := by scalar_tac
+      cases this <;> scalar_tac
+    . have : i8_.val = 0 ∨ i8_.val = 1 := by scalar_tac
+      cases this <;> scalar_tac
+    <;> sorry 
