@@ -50,10 +50,20 @@ theorem bucket_index_is_in_bounds (hist: AnsHistogram) (inv: hist.invariant) (st
             apply Nat.pow_div <;> scalar_tac
     assumption
 
-theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (br : bit_reader.BitReader) (state : Std.U32) :
+theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.invariant) (br : bit_reader.BitReader) (state : Std.U32) :
     self.read br state ⦃ r => True ⦄
 :=
   by
     unfold entropy_coding.ans.AnsHistogram.read
-    -- progress*
-    sorry
+    simp at inv
+    simp_all only [global_simps]
+    progress*
+    . have : self.buckets.val.length.isPowerOfTwo := ⟨ _, inv.right ⟩
+      scalar_tac
+    . have : self.buckets.len = self.buckets.deref.length := rfl
+      scalar_tac
+    . have : map_to_alias.val = 0 ∨ map_to_alias.val = 1 := by scalar_tac
+      cases this <;> scalar_tac
+    . have : map_to_alias.val = 0 ∨ map_to_alias.val = 1 := by scalar_tac
+      cases this <;> scalar_tac
+    <;> sorry
