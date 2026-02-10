@@ -22,7 +22,8 @@ def bucket_index (hist: AnsHistogram) (state: U32): Result Std.Usize :=
 @[simp]
 lemma ad_hoc (x: U32): x.val &&& 0xfff = x.val % 2^12 :=
   by
-    sorry
+    have : 0xfff = 2^12 - 1 := by rfl
+    rw [this, Nat.and_two_pow_sub_one_eq_mod]
 
 theorem bucket_index_is_in_bounds (hist: AnsHistogram) (inv: hist.invariant) (state: U32):
     bucket_index hist state ⦃ idx => idx < hist.buckets.len ⦄
@@ -54,5 +55,5 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (br : bit_r
 :=
   by
     unfold entropy_coding.ans.AnsHistogram.read
-    progress*
+    -- progress*
     sorry
