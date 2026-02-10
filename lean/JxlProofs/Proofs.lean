@@ -59,16 +59,11 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
     simp at inv
     simp_all only [global_simps]
     progress*
+    <;> try 
+      have : map_to_alias.val = 0 ∨ map_to_alias.val = 1 := by scalar_tac
+      cases this <;> scalar_tac
     . have : self.buckets.val.length.isPowerOfTwo := ⟨ _, inv.right ⟩
       scalar_tac
     . have : self.buckets.len = self.buckets.deref.length := rfl
       scalar_tac
-    . have : map_to_alias.val = 0 ∨ map_to_alias.val = 1 := by scalar_tac
-      cases this <;> scalar_tac
-    . have : map_to_alias.val = 0 ∨ map_to_alias.val = 1 := by scalar_tac
-      cases this <;> scalar_tac
-    . have : map_to_alias.val = 0 ∨ map_to_alias.val = 1 := by scalar_tac
-      cases this <;> scalar_tac
-    . have : i8_.val = 0 ∨ i8_.val = 1 := by scalar_tac
-      cases this <;> scalar_tac
     <;> sorry 
