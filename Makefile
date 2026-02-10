@@ -9,4 +9,4 @@ jxl.llbc:
 	mv $(JXL_HOME)/$@ $@
 
 extract: jxl.llbc
-	../aeneas/bin/aeneas jxl.llbc -backend lean -split-files -subdir lean
+	cd lean && ../aeneas/bin/aeneas ../jxl.llbc -backend lean -split-files -subdir JxlProofs

@@ -1,0 +1,16 @@
+name = "jxl-proofs"
+version = "0.1.0"
+defaultTargets = ["jxl-proofs"]
+
+[[lean_lib]]
+name = "JxlProofs"
+
+[[lean_exe]]
+name = "jxl-proofs"
+root = "Main"
+
+[[require]]
+
+name = "aeneas"
+# FIXME: symlink in jxl-proofs, make error if absent
+path = "../../aeneas/backends/lean"
