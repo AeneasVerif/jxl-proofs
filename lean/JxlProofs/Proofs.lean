@@ -66,4 +66,17 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
       scalar_tac
     . have : self.buckets.len = self.buckets.deref.length := rfl
       scalar_tac
-    <;> sorry 
+    . have : map_to_alias.val = 0 ∨ map_to_alias.val = 1 := by scalar_tac
+      cases this
+      . scalar_tac
+      . have : i4.val < 2^16 := by bv_tac 32
+        have : pos.val < 4096 := by bv_tac 32
+        scalar_tac
+    . have : i10.val < 2^20 := by bv_tac 32
+      have : dist.val < 2^16 := by bv_tac 32
+      sorry -- bound is not tight enough here
+    . sorry
+    . sorry -- need to specify br.peek
+    . sorry -- need to assert that i1 is equal to `bucket_index self state` then apply bucket_index_is_in_bounds
+            -- to derive a contradiction
+      
