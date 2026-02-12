@@ -7,10 +7,20 @@ namespace jxl
 
 open entropy_coding.ans
 
+-- TYPES
+
+@[simp]
+def entropy_coding.ans.Bucket.invariant (self: Bucket): Bool :=
+  self.dist.val < 2^LOG_SUM_PROBS.val ∧
+  self.alias_dist_xor.val < 2^LOG_SUM_PROBS.val
+
 @[simp]
 def entropy_coding.ans.AnsHistogram.invariant (self: AnsHistogram) :=
   self.log_bucket_size <= LOG_SUM_PROBS ∧
-  self.buckets.len.val = 2^(LOG_SUM_PROBS.val - self.log_bucket_size.val)
+  self.buckets.len.val = 2^(LOG_SUM_PROBS.val - self.log_bucket_size.val) ∧
+  self.buckets.val.all (fun b => b.invariant)
+
+-- HELPERS
 
 def bucket_index (hist: AnsHistogram) (state: U32): Result Std.Usize :=
   do
@@ -24,6 +34,8 @@ lemma ad_hoc (x: U32): x.val &&& 0xfff = x.val % 2^12 :=
   by
     have : 0xfff = 2^12 - 1 := by rfl
     rw [this, Nat.and_two_pow_sub_one_eq_mod]
+
+-- THEOREMZ
 
 theorem bucket_index_is_in_bounds (hist: AnsHistogram) (inv: hist.invariant) (state: U32):
     bucket_index hist state ⦃ idx => idx < hist.buckets.len ⦄
@@ -57,12 +69,13 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
   by
     unfold entropy_coding.ans.AnsHistogram.read
     simp at inv
+    split_conjs at inv
     simp_all only [global_simps]
     progress*
     <;> try 
       have : map_to_alias.val = 0 ∨ map_to_alias.val = 1 := by scalar_tac
       cases this <;> scalar_tac
-    . have : self.buckets.val.length.isPowerOfTwo := ⟨ _, inv.right ⟩
+    . have : self.buckets.val.length.isPowerOfTwo := ⟨ _, by assumption ⟩
       scalar_tac
     . have : self.buckets.len = self.buckets.deref.length := rfl
       scalar_tac
@@ -74,9 +87,17 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
         scalar_tac
     . have : i10.val < 2^20 := by bv_tac 32
       have : dist.val < 2^16 := by bv_tac 32
-      sorry -- bound is not tight enough here
+      have : bucket = self.buckets.val[i1.val] := by
+        conv => lhs; simp[*,alloc.vec.Vec.deref]
+        sorry
+      have : bucket.invariant := by sorry
+      sorry -- need to get the invariant
     . sorry
     . sorry -- need to specify br.peek
-    . sorry -- need to assert that i1 is equal to `bucket_index self state` then apply bucket_index_is_in_bounds
-            -- to derive a contradiction
-      
+    . have : i1 = bucket_index self state := by
+        simp_all
+        simp [bucket_index]
+        sorry
+      -- apply bucket_index_is_in_bounds
+      -- contradiction
+      sorry
