@@ -106,12 +106,9 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
       scalar_tac
     . have : self.buckets.len = self.buckets.deref.length := rfl
       scalar_tac
-    . have : map_to_alias.val = 0 ∨ map_to_alias.val = 1 := by scalar_tac
-      cases this
-      . scalar_tac
-      . have : i4.val < 2^16 := by bv_tac 32
-        have : pos.val < 4096 := by bv_tac 32
-        scalar_tac
+    . have : i4.val < 2^16 := by bv_tac 32
+      have : pos.val < 4096 := by bv_tac 32
+      scalar_tac
     . have : i10.val < 2^20 := by bv_tac 32
       have h : bucket = self.buckets.val[i3.val] := by
         simp_all[alloc.vec.Vec.deref]
