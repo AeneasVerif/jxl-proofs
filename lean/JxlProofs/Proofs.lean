@@ -12,7 +12,8 @@ open entropy_coding.ans
 @[simp]
 def entropy_coding.ans.Bucket.invariant (self: Bucket): Bool :=
   self.dist.val < 2^LOG_SUM_PROBS.val ∧
-  self.alias_dist_xor.val < 2^LOG_SUM_PROBS.val
+  self.alias_dist_xor.val < 2^LOG_SUM_PROBS.val ∧
+  self.alias_offset.val < self.dist
 
 @[simp]
 def entropy_coding.ans.AnsHistogram.invariant (self: AnsHistogram) :=
@@ -87,7 +88,7 @@ theorem times_zero_or_1 (x y: U32) (h: y.val = 0 ∨ y.val = 1): x.val * y.val <
   by
     cases h <;> scalar_tac
 
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 2000000
 theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.invariant) (br : bit_reader.BitReader) (state : Std.U32) :
     self.read br state ⦃ r => True ⦄
 :=
@@ -107,7 +108,7 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
     . have : self.buckets.len = self.buckets.deref.length := rfl
       scalar_tac
     . have : i4.val < 2^16 := by bv_tac 32
-      have : pos.val < 4096 := by bv_tac 32
+      have : pos.val < 2^12 := by bv_tac 32
       scalar_tac
     . have : i10.val < 2^20 := by bv_tac 32
       have h : bucket = self.buckets.val[i3.val] := by
@@ -123,5 +124,19 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
         simp [global_simps] at *
         bv_tac 32
       scalar_tac
-    . sorry
+    . have : i10.val < 2^20 := by bv_tac 32
+      have h : bucket = self.buckets.val[i3.val] := by
+        simp_all[alloc.vec.Vec.deref]
+        sorry
+      have : bucket.invariant := by
+        have := inv2 bucket
+        simp [h] at this
+        simp [global_simps,h,this]
+      simp at this
+      split_conjs at this
+      have : dist1.val < 2^12 := by
+        simp [global_simps] at *
+        bv_tac 32
+      have : offset1.val < dist + 2^12 := by bv_tac 32
+      scalar_tac 
     . sorry -- need to specify br.peek
