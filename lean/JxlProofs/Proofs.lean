@@ -88,11 +88,20 @@ theorem times_zero_or_1 (x y: U32) (h: y.val = 0 ∨ y.val = 1): x.val * y.val <
   by
     cases h <;> scalar_tac
 
-@[simp,scalar_tac (UScalar.cast UScalarTy.U32 x)]
-theorem cast_lt (x: U16):
-    (UScalar.cast UScalarTy.U32 x).val < 2^16 :=
-  by
-    bv_tac 32
+/- @[simp,scalar_tac (UScalar.cast UScalarTy.U32 x).val] -/
+/- theorem cast_lt (x: U16): -/
+/-     (UScalar.cast UScalarTy.U32 x).val < 0x10000 := -/
+/-   by -/
+/-     bv_tac 32 -/
+
+@[simp,scalar_tac x &&& y]
+theorem and_lt1 (x y: U32): x &&& y <= x := by bv_tac 32
+
+@[simp,scalar_tac x &&& y]
+theorem and_lt2 (x y: U32): x &&& y <= y := by bv_tac 32
+
+@[simp,scalar_tac x.len]
+theorem len_is_len (x: alloc.vec.Vec a): x.len = x.deref.length := by rfl
 
 set_option maxHeartbeats 2000000
 theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.invariant) (br : bit_reader.BitReader) (state : Std.U32) :
@@ -110,11 +119,6 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
       cases this <;> scalar_tac
     . simp_all [global_simps]
     . have : self.buckets.val.length.isPowerOfTwo := ⟨ _, by assumption ⟩
-      scalar_tac
-    . have : self.buckets.len = self.buckets.deref.length := rfl
-      scalar_tac
-    . have : i4.val < 2^16 := by bv_tac 32
-      have : pos.val < 2^12 := by bv_tac 32
       scalar_tac
     . have : i10.val < 2^20 := by bv_tac 32
       have h : bucket = self.buckets.val[i3.val] := by
