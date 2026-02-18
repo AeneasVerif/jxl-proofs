@@ -81,7 +81,7 @@ theorem bucket_index_eq {a} (self: AnsHistogram) (i: U32) (f: Usize -> U32 -> Re
     congr
     scalar_tac
 
-/- attribute [bv_tac_simps,simp] LOG_SUM_PROBS -/
+attribute [bvify_simps,simp] LOG_SUM_PROBS
 
 @[simp,scalar_tac x.val * y.val]
 theorem times_zero_or_1 (x y: U32) (h: y.val = 0 ∨ y.val = 1): x.val * y.val <= U32.max :=
@@ -109,15 +109,17 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
 :=
   by
     unfold entropy_coding.ans.AnsHistogram.read
+    -- Keep a copy of the folded invariant (useful as a precondition for
+    -- .e.g. bucket_index_is_in_bounds). Unfold the invariant so that each part
+    -- of the conjunction becomes its own hypothesis (generally useful).
+    have : self.invariant := inv
     simp at inv
     rcases inv with ⟨ inv0, inv1, inv2 ⟩
-    simp_all only [global_simps]
     rw [bucket_index_eq]
     progress*
     <;> try 
       have : map_to_alias.val = 0 ∨ map_to_alias.val = 1 := by scalar_tac
       cases this <;> scalar_tac
-    . simp_all [global_simps]
     . have : self.buckets.val.length.isPowerOfTwo := ⟨ _, by assumption ⟩
       scalar_tac
     . have : i10.val < 2^20 := by bv_tac 32
