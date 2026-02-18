@@ -88,6 +88,12 @@ theorem times_zero_or_1 (x y: U32) (h: y.val = 0 ∨ y.val = 1): x.val * y.val <
   by
     cases h <;> scalar_tac
 
+@[simp,scalar_tac (UScalar.cast UScalarTy.U32 x)]
+theorem cast_lt (x: U16):
+    (UScalar.cast UScalarTy.U32 x).val < 2^16 :=
+  by
+    bv_tac 32
+
 set_option maxHeartbeats 2000000
 theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.invariant) (br : bit_reader.BitReader) (state : Std.U32) :
     self.read br state ⦃ r => True ⦄
