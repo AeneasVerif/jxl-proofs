@@ -9,6 +9,8 @@ open entropy_coding.ans
 
 -- TYPES
 
+deriving instance Inhabited for Bucket
+
 @[simp]
 def entropy_coding.ans.Bucket.invariant (self: Bucket): Bool :=
   self.dist.val < 2^LOG_SUM_PROBS.val ∧
@@ -104,15 +106,18 @@ theorem and_lt2 (x y: U32): x &&& y <= y := by bv_tac 32
 theorem len_is_len (x: alloc.vec.Vec a): x.len = x.deref.length := by rfl
 
 set_option maxHeartbeats 2000000
+
+
+
 theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.invariant) (br : bit_reader.BitReader) (state : Std.U32) :
     self.read br state ⦃ r => True ⦄
 :=
   by
     unfold entropy_coding.ans.AnsHistogram.read
     -- Keep a copy of the folded invariant (useful as a precondition for
-    -- .e.g. bucket_index_is_in_bounds). Unfold the invariant so that each part
+    -- e.g. bucket_index_is_in_bounds). Unfold the invariant so that each part
     -- of the conjunction becomes its own hypothesis (generally useful).
-    have : self.invariant := inv
+    have _: self.invariant := by assumption
     simp at inv
     rcases inv with ⟨ inv0, inv1, inv2 ⟩
     rw [bucket_index_eq]
@@ -121,7 +126,7 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
       have : map_to_alias.val = 0 ∨ map_to_alias.val = 1 := by scalar_tac
       cases this <;> scalar_tac
     . have : self.buckets.val.length.isPowerOfTwo := ⟨ _, by assumption ⟩
-      scalar_tac
+      simp_all
     . have : i10.val < 2^20 := by bv_tac 32
       have h : bucket = self.buckets.val[i3.val] := by
         simp_all[alloc.vec.Vec.deref]
