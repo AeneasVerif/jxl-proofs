@@ -3,56 +3,72 @@
 import Aeneas
 import JxlProofs.Types
 import JxlProofs.FunsExternal
-open Aeneas Aeneas.Std Result Error
+open Aeneas Aeneas.Std Result ControlFlow Error
 set_option linter.dupNamespace false
 set_option linter.hashCommand false
 set_option linter.unusedVariables false
 
+/- You can set the `maxHeartbeats` value with the `-max-heartbeats` CLI option -/
+set_option maxHeartbeats 1000000
+
+/- You can remove the following line by using the CLI option `-all-computable`: -/
+noncomputable section
+
 namespace jxl
 
-/- Trait implementation: [core::fmt::num::imp::{core::fmt::Display for usize}]
-   Source: '/rustc/library/core/src/fmt/num.rs', lines 134:8-134:39
-   Name pattern: [core::fmt::Display<usize>] -/
+/-- Trait implementation: [core::fmt::num::imp::{core::fmt::Display for usize}]
+    Source: '/rustc/library/core/src/fmt/num.rs', lines 134:8-134:39
+    Name pattern: [core::fmt::Display<usize>] -/
 @[reducible, rust_trait_impl "core::fmt::Display<usize>"]
-def core.fmt.DisplayUsize : core.fmt.Display Std.Usize := {
+def Usize.Insts.CoreFmtDisplay : core.fmt.Display Std.Usize := {
   fmt := core.fmt.num.imp.DisplayUsize.fmt
 }
 
-/- [jxl::bit_reader::MAX_BITS_PER_CALL]
-   Source: 'jxl/src/bit_reader.rs', lines 34:0-34:40 -/
-@[global_simps]
-def bit_reader.MAX_BITS_PER_CALL_body : Result Std.Usize := do ok 56#usize
+/-- [jxl::bit_reader::MAX_BITS_PER_CALL]
+    Source: 'jxl/src/bit_reader.rs', lines 34:0-34:40
+    Visibility: public -/
 @[global_simps, irreducible]
-def bit_reader.MAX_BITS_PER_CALL : Std.Usize :=
-  eval_global bit_reader.MAX_BITS_PER_CALL_body
+def bit_reader.MAX_BITS_PER_CALL : Std.Usize := 56#usize
 
-/- [jxl::bit_reader::{jxl::bit_reader::BitReader<'a>}::refill_slow]: loop 0:
-   Source: 'jxl/src/bit_reader.rs', lines 221:8-229:5 -/
-def bit_reader.BitReader.refill_slow_loop
+/-- [jxl::bit_reader::{jxl::bit_reader::BitReader<'a>}::refill_slow]: loop body 0:
+    Source: 'jxl/src/bit_reader.rs', lines 221:8-229:5 -/
+@[rust_loop_body]
+def bit_reader.BitReader.refill_slow_loop.body
   (s : Slice Std.U8) (i : Std.U64) (i1 : Std.Usize) :
-  Result ((Slice Std.U8) × Std.U64 × Std.Usize)
+  Result (ControlFlow ((Slice Std.U8) × Std.U64 × Std.Usize) ((Slice Std.U8)
+    × Std.U64 × Std.Usize))
   := do
   if i1 < 56#usize
   then
     let b ← core.slice.Slice.is_empty s
     if b
-    then ok (s, i, i1)
+    then ok (done (s, i, i1))
     else
       let i2 ← Slice.index_usize s 0#usize
-      let i3 ← (↑(UScalar.cast .U64 i2) : Result Std.U64)
+      let i3 ← lift (UScalar.cast .U64 i2)
       let i4 ← i3 <<< i1
-      let i5 ← (↑(i ||| i4) : Result Std.U64)
+      let i5 ← lift (i ||| i4)
       let i6 ← i1 + 8#usize
       let s1 ←
         core.slice.index.Slice.index
           (core.slice.index.SliceIndexRangeFromUsizeSlice Std.U8) s
           { start := 1#usize }
-      bit_reader.BitReader.refill_slow_loop s1 i5 i6
-  else ok (s, i, i1)
-partial_fixpoint
+      ok (cont (s1, i5, i6))
+  else ok (done (s, i, i1))
 
-/- [jxl::bit_reader::{jxl::bit_reader::BitReader<'a>}::refill_slow]:
-   Source: 'jxl/src/bit_reader.rs', lines 220:4-229:5 -/
+/-- [jxl::bit_reader::{jxl::bit_reader::BitReader<'a>}::refill_slow]: loop 0:
+    Source: 'jxl/src/bit_reader.rs', lines 221:8-229:5 -/
+@[rust_loop]
+def bit_reader.BitReader.refill_slow_loop
+  (s : Slice Std.U8) (i : Std.U64) (i1 : Std.Usize) :
+  Result ((Slice Std.U8) × Std.U64 × Std.Usize)
+  := do
+  loop
+    (fun (s1, i2, i3) => bit_reader.BitReader.refill_slow_loop.body s1 i2 i3)
+    (s, i, i1)
+
+/-- [jxl::bit_reader::{jxl::bit_reader::BitReader<'a>}::refill_slow]:
+    Source: 'jxl/src/bit_reader.rs', lines 220:4-229:5 -/
 def bit_reader.BitReader.refill_slow
   (self : bit_reader.BitReader) : Result bit_reader.BitReader := do
   let (s, i, i1) ←
@@ -60,19 +76,20 @@ def bit_reader.BitReader.refill_slow
       self.bits_in_buf
   ok { self with data := s, bit_buf := i, bits_in_buf := i1 }
 
-/- [jxl::bit_reader::{jxl::bit_reader::BitReader<'a>}::refill]:
-   Source: 'jxl/src/bit_reader.rs', lines 205:4-217:5 -/
+/-- [jxl::bit_reader::{jxl::bit_reader::BitReader<'a>}::refill]:
+    Source: 'jxl/src/bit_reader.rs', lines 205:4-217:5 -/
 def bit_reader.BitReader.refill
   (self : bit_reader.BitReader) : Result bit_reader.BitReader := do
   let i := Slice.len self.data
   if i >= 8#usize
   then
-    let bits ← byteorder.ByteOrderLittleEndian.read_u64 self.data
+    let bits ←
+      byteorder.LittleEndian.Insts.ByteorderByteOrder.read_u64 self.data
     let i1 ← bits <<< self.bits_in_buf
-    let i2 ← (↑(self.bit_buf ||| i1) : Result Std.U64)
+    let i2 ← lift (self.bit_buf ||| i1)
     let i3 ← 63#usize - self.bits_in_buf
     let read_bytes ← i3 >>> 3#i32
-    let i4 ← (↑(self.bits_in_buf ||| 56#usize) : Result Std.Usize)
+    let i4 ← lift (self.bits_in_buf ||| 56#usize)
     let s ←
       core.slice.index.Slice.index
         (core.slice.index.SliceIndexRangeFromUsizeSlice Std.U8) self.data
@@ -82,8 +99,9 @@ def bit_reader.BitReader.refill
     ok { self with data := s, bit_buf := i2, bits_in_buf := i4 }
   else bit_reader.BitReader.refill_slow self
 
-/- [jxl::bit_reader::{jxl::bit_reader::BitReader<'a>}::peek]:
-   Source: 'jxl/src/bit_reader.rs', lines 50:4-56:5 -/
+/-- [jxl::bit_reader::{jxl::bit_reader::BitReader<'a>}::peek]:
+    Source: 'jxl/src/bit_reader.rs', lines 50:4-56:5
+    Visibility: public -/
 def bit_reader.BitReader.peek
   (self : bit_reader.BitReader) (num : Std.Usize) :
   Result (Std.U64 × bit_reader.BitReader)
@@ -92,6 +110,7 @@ def bit_reader.BitReader.peek
   let (s, i, i1, i2, i3) ←
     if self.bits_in_buf < num
     then
+      do
       let self1 ← bit_reader.BitReader.refill self
       ok (self1.data, self1.bit_buf, self1.bits_in_buf, self1.total_bits_read,
         self1.initial_bits)
@@ -100,7 +119,7 @@ def bit_reader.BitReader.peek
         self.initial_bits)
   let i4 ← 1#u64 <<< num
   let i5 ← i4 - 1#u64
-  let i6 ← (↑(i &&& i5) : Result Std.U64)
+  let i6 ← lift (i &&& i5)
   ok (i6,
     {
       data := s,
@@ -110,40 +129,35 @@ def bit_reader.BitReader.peek
       initial_bits := i3
     })
 
-/- [jxl::bit_reader::{jxl::bit_reader::BitReader<'a>}::consume_optimistic]:
-   Source: 'jxl/src/bit_reader.rs', lines 70:4-74:5 -/
+/-- [jxl::bit_reader::{jxl::bit_reader::BitReader<'a>}::consume_optimistic]:
+    Source: 'jxl/src/bit_reader.rs', lines 70:4-74:5
+    Visibility: public -/
 def bit_reader.BitReader.consume_optimistic
   (self : bit_reader.BitReader) (num : Std.Usize) :
   Result bit_reader.BitReader
   := do
   let i ← self.bit_buf >>> num
-  let i1 ←
-    (↑(core.num.Usize.saturating_sub self.bits_in_buf num) : Result
-      Std.Usize)
-  let i2 ←
-    (↑(core.num.Usize.wrapping_add self.total_bits_read num) : Result
-      Std.Usize)
+  let i1 ← lift (core.num.Usize.saturating_sub self.bits_in_buf num)
+  let i2 ← lift (core.num.Usize.wrapping_add self.total_bits_read num)
   ok { self with bit_buf := i, bits_in_buf := i1, total_bits_read := i2 }
 
-/- [jxl::entropy_coding::ans::LOG_SUM_PROBS]
-   Source: 'jxl/src/entropy_coding/ans.rs', lines 11:0-11:32 -/
-@[global_simps]
-def entropy_coding.ans.LOG_SUM_PROBS_body : Result Std.Usize := do ok 12#usize
+/-- [jxl::entropy_coding::ans::LOG_SUM_PROBS]
+    Source: 'jxl/src/entropy_coding/ans.rs', lines 11:0-11:32 -/
 @[global_simps, irreducible]
-def entropy_coding.ans.LOG_SUM_PROBS : Std.Usize :=
-  eval_global entropy_coding.ans.LOG_SUM_PROBS_body
+def entropy_coding.ans.LOG_SUM_PROBS : Std.Usize := 12#usize
 
-/- [jxl::entropy_coding::ans::{jxl::entropy_coding::ans::AnsHistogram}::read]:
-   Source: 'jxl/src/entropy_coding/ans.rs', lines 356:4-393:5 -/
+/-- [jxl::entropy_coding::ans::{jxl::entropy_coding::ans::AnsHistogram}::read]:
+    Source: 'jxl/src/entropy_coding/ans.rs', lines 356:4-393:5
+    Visibility: public -/
 def entropy_coding.ans.AnsHistogram.read
   (self : entropy_coding.ans.AnsHistogram) (br : bit_reader.BitReader)
   (state : Std.U32) :
   Result (Std.U32 × bit_reader.BitReader × Std.U32)
   := do
-  let idx ← (↑(state &&& 4095#u32) : Result Std.U32)
+  let idx ← lift (state &&& 4095#u32)
   let i ← idx >>> self.log_bucket_size
-  let i1 ← (↑(UScalar.cast .Usize i) : Result Std.Usize)
-  let pos ← (↑(idx &&& self.bucket_mask) : Result Std.U32)
+  let i1 ← lift (UScalar.cast .Usize i)
+  let pos ← lift (idx &&& self.bucket_mask)
   let i2 := alloc.vec.Vec.len self.buckets
   let b ← core.num.Usize.is_power_of_two i2
   massert b
@@ -154,46 +168,44 @@ def entropy_coding.ans.AnsHistogram.read
     let bucket ←
       core.slice.Slice.get_unchecked (core.slice.index.SliceIndexUsizeSlice
         entropy_coding.ans.Bucket) s i1
-    let alias_symbol ←
-      (↑(UScalar.cast .U32 bucket.alias_symbol) : Result Std.U32)
-    let alias_cutoff ←
-      (↑(UScalar.cast .U32 bucket.alias_cutoff) : Result Std.U32)
-    let dist ← (↑(UScalar.cast .U32 bucket.dist) : Result Std.U32)
+    let alias_symbol ← lift (UScalar.cast .U32 bucket.alias_symbol)
+    let alias_cutoff ← lift (UScalar.cast .U32 bucket.alias_cutoff)
+    let dist ← lift (UScalar.cast .U32 bucket.dist)
     let map_to_alias ←
-      (↑(UScalar.cast_fromBool .U32 (pos >= alias_cutoff)) : Result Std.U32)
-    let i4 ← (↑(UScalar.cast .U32 bucket.alias_offset) : Result Std.U32)
+      lift (UScalar.cast_fromBool .U32 (pos >= alias_cutoff))
+    let i4 ← lift (UScalar.cast .U32 bucket.alias_offset)
     let offset ← i4 * map_to_alias
-    let i5 ← (↑(UScalar.cast .U32 bucket.alias_dist_xor) : Result Std.U32)
+    let i5 ← lift (UScalar.cast .U32 bucket.alias_dist_xor)
     let dist_xor ← i5 * map_to_alias
-    let dist1 ← (↑(dist ^^^ dist_xor) : Result Std.U32)
+    let dist1 ← lift (dist ^^^ dist_xor)
     let i6 ← alias_symbol * map_to_alias
-    let i7 ← (↑(UScalar.cast .U32 i1) : Result Std.U32)
-    let i8_ ← 1#u32 - map_to_alias
-    let i9 ← i7 * i8_
-    let symbol ← (↑(i6 ||| i9) : Result Std.U32)
+    let i7 ← lift (UScalar.cast .U32 i1)
+    let i8 ← 1#u32 - map_to_alias
+    let i9 ← i7 * i8
+    let symbol ← lift (i6 ||| i9)
     let offset1 ← offset + pos
     let i10 ← state >>> entropy_coding.ans.LOG_SUM_PROBS
     let i11 ← i10 * dist1
     let next_state ← i11 + offset1
     let i12 ← 1#u32 <<< 16#i32
     let select_appended ←
-      (↑(UScalar.cast_fromBool .U32 (next_state < i12)) : Result Std.U32)
+      lift (UScalar.cast_fromBool .U32 (next_state < i12))
     let i13 ← next_state <<< 16#i32
     let (i14, br1) ← bit_reader.BitReader.peek br 16#usize
-    let i15 ← (↑(UScalar.cast .U32 i14) : Result Std.U32)
-    let appended_state ← (↑(i13 ||| i15) : Result Std.U32)
-    let i16_ ← appended_state * select_appended
+    let i15 ← lift (UScalar.cast .U32 i14)
+    let appended_state ← lift (i13 ||| i15)
+    let i16 ← appended_state * select_appended
     let i17 ← 1#u32 - select_appended
     let i18 ← next_state * i17
-    let state1 ← (↑(i16_ ||| i18) : Result Std.U32)
+    let state1 ← lift (i16 ||| i18)
     let i19 ← 16#u32 * select_appended
-    let i20 ← (↑(UScalar.cast .Usize i19) : Result Std.Usize)
+    let i20 ← lift (UScalar.cast .Usize i19)
     let br2 ← bit_reader.BitReader.consume_optimistic br1 i20
     ok (symbol, br2, state1)
   else
     let i4 := alloc.vec.Vec.len self.buckets
-    let a ← core.fmt.rt.Argument.new_display core.fmt.DisplayUsize i1
-    let a1 ← core.fmt.rt.Argument.new_display core.fmt.DisplayUsize i4
+    let a ← core.fmt.rt.Argument.new_display Usize.Insts.CoreFmtDisplay i1
+    let a1 ← core.fmt.rt.Argument.new_display Usize.Insts.CoreFmtDisplay i4
     let _ ←
       core.fmt.Arguments.new
         (Array.make 42#usize [
@@ -205,8 +217,9 @@ def entropy_coding.ans.AnsHistogram.read
           ]) (Array.make 2#usize [ a, a1 ])
     fail panic
 
-/- [jxl::entropy_coding::ans::{jxl::entropy_coding::ans::AnsReader}::read]:
-   Source: 'jxl/src/entropy_coding/ans.rs', lines 437:4-439:5 -/
+/-- [jxl::entropy_coding::ans::{jxl::entropy_coding::ans::AnsReader}::read]:
+    Source: 'jxl/src/entropy_coding/ans.rs', lines 437:4-439:5
+    Visibility: public -/
 def entropy_coding.ans.AnsReader.read
   (self : entropy_coding.ans.AnsReader) (codes : entropy_coding.ans.AnsCodes)
   (br : bit_reader.BitReader) (ctx : Std.Usize) :

@@ -14,7 +14,7 @@ open jxl
    Name pattern: [byteorder::{byteorder::ByteOrder<byteorder::LittleEndian>}::read_u64] -/
 @[rust_fun
   "byteorder::{byteorder::ByteOrder<byteorder::LittleEndian>}::read_u64"]
-def byteorder.ByteOrderLittleEndian.read_u64 (bytes: Slice Std.U8) : Result Std.U64 :=
+def byteorder.LittleEndian.Insts.ByteorderByteOrder.read_u64 (bytes: Slice Std.U8) : Result Std.U64 :=
   do
     let ⟨ b0, _ ⟩ ← Result.ofOption (bytes.val[0]?) panic
     let ⟨ b1, _ ⟩ ← Result.ofOption (bytes.val[1]?) panic
