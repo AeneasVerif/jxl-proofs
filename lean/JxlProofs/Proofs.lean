@@ -131,7 +131,55 @@ theorem or_lt_pow2 (x y: U64) (h: x < 64#u64 ∧ y < 64#u64): x ||| y < 64#u64 :
   bv_tac 64
 
 theorem or_lt_pow2_usize (x y: Usize) (h: x < 64#usize ∧ y < 64#usize): x ||| y < 64#usize := by
-  sorry
+  let ⟨bv_x⟩ := x
+  let ⟨bv_y⟩ := y
+  cases h_bits : System.Platform.numBits_eq
+  . rename_i h_bits_val
+    have h1 : bv_x.toNat < 64 := by
+      simp [h_bits_val, UScalar.lt_equiv, UScalar.val] at h
+      exact h.1
+    have h2 : bv_y.toNat < 64 := by
+      simp [h_bits_val, UScalar.lt_equiv, UScalar.val] at h
+      exact h.2
+    clear h
+    have helper : ∀ (b1 b2 : BitVec 32), b1.toNat < 64 → b2.toNat < 64 → (b1 ||| b2).toNat < 64 := by
+      intro b1 b2 hb1 hb2
+      change b1 < BitVec.ofNat 32 64 at hb1
+      change b2 < BitVec.ofNat 32 64 at hb2
+      show (b1 ||| b2) < BitVec.ofNat 32 64
+      bv_tac 32
+    rw [UScalar.lt_equiv, UScalar.val_or]
+    unfold UScalar.val
+    simp [h_bits_val]
+    rw [← BitVec.toNat_or]
+    revert bv_x bv_y h1 h2
+    unfold UScalarTy.numBits
+    rw [h_bits_val]
+    intro bv_x bv_y h1 h2
+    apply helper <;> assumption
+  . rename_i h_bits_val
+    have h1 : bv_x.toNat < 64 := by
+      simp [h_bits_val, UScalar.lt_equiv, UScalar.val] at h
+      exact h.1
+    have h2 : bv_y.toNat < 64 := by
+      simp [h_bits_val, UScalar.lt_equiv, UScalar.val] at h
+      exact h.2
+    clear h
+    have helper : ∀ (b1 b2 : BitVec 64), b1.toNat < 64 → b2.toNat < 64 → (b1 ||| b2).toNat < 64 := by
+      intro b1 b2 hb1 hb2
+      change b1 < BitVec.ofNat 64 64 at hb1
+      change b2 < BitVec.ofNat 64 64 at hb2
+      show (b1 ||| b2) < BitVec.ofNat 64 64
+      bv_tac 64
+    rw [UScalar.lt_equiv, UScalar.val_or]
+    unfold UScalar.val
+    simp [h_bits_val]
+    rw [← BitVec.toNat_or]
+    revert bv_x bv_y h1 h2
+    unfold UScalarTy.numBits
+    rw [h_bits_val]
+    intro bv_x bv_y h1 h2
+    apply helper <;> assumption
 
 @[step]
 theorem refill_does_not_panic (self: BitReader) (h: self.invariant): self.refill ⦃ r => True ⦄ := by
