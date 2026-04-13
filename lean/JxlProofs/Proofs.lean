@@ -11,6 +11,10 @@ open jxl.bit_reader
 -- INVARIANTS OVER TYPES
 
 @[simp]
+def bit_reader.BitReader.invariant (self: bit_reader.BitReader) :=
+  self.bits_in_buf < Usize.ofNat 64
+
+@[simp]
 def entropy_coding.ans.Bucket.invariant (self: Bucket): Bool :=
   self.dist.val < 2^LOG_SUM_PROBS.val ∧
   self.alias_dist_xor.val < 2^LOG_SUM_PROBS.val ∧
@@ -34,11 +38,83 @@ def bucket_index (hist: AnsHistogram) (state: U32): Result Std.Usize :=
     -- coercion that is not recognized by the implementation of progress*
     Result.ok (Usize.ofNatCore r.val (by scalar_tac))
 
+-- PROGRESS LEMMAS
+
+@[simp,scalar_tac x.val * y.val]
+theorem times_zero_or_1 (x y: U32) (h: y.val = 0 ∨ y.val = 1): x.val * y.val <= U32.max :=
+  by
+    cases h <;> scalar_tac
+
+@[simp,scalar_tac x &&& y]
+theorem and_lt1 (x y: U32): x &&& y <= x := by bv_tac 32
+
+@[simp,scalar_tac x &&& y]
+theorem and_lt2 (x y: U32): x &&& y <= y := by bv_tac 32
+
+@[simp,scalar_tac x ||| y]
+theorem or_lt1 (x y: U32): x <= x ||| y := by bv_tac 32
+
+@[simp,scalar_tac x ||| y]
+theorem or_lt2 (x y: U32): y <= x ||| y := by bv_tac 32
+
+@[simp,scalar_tac x ||| y]
+theorem or_lt2_usize (x y: Usize): y <= x ||| y := by
+  sorry
+
+@[simp,scalar_tac x.len]
+theorem len_is_len (x: alloc.vec.Vec a): x.len = x.deref.length := by rfl
+
+
 -- SPECIFYING BITREADER
 
 @[step]
-theorem refill_slow_does_not_panic (self: BitReader): self.refill_slow ⦃ new_self ⦄ := by
-  sorry
+theorem refill_slow_loop_does_not_panic (data0 : Slice Std.U8) (bit_buf0 : Std.U64) (bits_in_buf0 : Std.Usize) :
+  BitReader.refill_slow_loop data0 bit_buf0 bits_in_buf0 ⦃ r => True ⦄ := by
+    -- NOTE: the generated code does not seem to be able to reuse field names from the source code,
+    -- but we can recover this information by looking at the types
+    --   s = self.data
+    --   i = self.bit_buf
+    --   i1 = self.bits_in_buf
+    apply loop.spec_decr_nat (measure := fun (data, bit_buf, bits_in_buf) => 56 - bits_in_buf) (inv := fun (data, bit_buf, bits_in_buf) => True) 
+    . intros
+      simp
+      unfold BitReader.refill_slow_loop.body
+      step*
+      scalar_tac
+    . scalar_tac
+
+@[step]
+theorem refill_slow_does_not_panic (self: BitReader): self.refill_slow ⦃ r => True ⦄ := by
+  unfold BitReader.refill_slow
+  step*
+
+open byteorder.LittleEndian.Insts.ByteorderByteOrder
+
+@[step]
+theorem ofOption_spec (x: Option a) (e: Error) (h: x.isSome): ofOption x e ⦃ r => True ⦄ := by
+  unfold ofOption
+  grind
+
+@[step]
+theorem read_u64_spec (bytes: Slice Std.U8) (h: bytes.len ≥ Usize.ofNat 8): read_u64 bytes ⦃ r => True ⦄ := by
+  unfold read_u64
+  step* 
+  <;> grind
+
+@[step]
+theorem refill_does_not_panic (self: BitReader) (h: self.invariant): self.refill ⦃ r => True ⦄ := by
+  unfold BitReader.refill
+  step*
+  simp at h
+  <;> try scalar_tac
+  . simp at h
+    grind
+  . cases System.Platform.numBits_eq <;> grind
+  . simp
+    scalar_tac
+  . have: Usize.ofNat 56 ≤ self.bits_in_buf ||| Usize.ofNat 56 := by apply or_lt2_usize
+    grind
+  . sorry
 
 -- THEOREMZ
 
@@ -90,14 +166,9 @@ theorem bucket_index_eq {a} (self: AnsHistogram) (i: U32) (f: Usize -> U32 -> Re
     congr
     scalar_tac
 
-@[simp,scalar_tac x.val * y.val]
-theorem times_zero_or_1 (x y: U32) (h: y.val = 0 ∨ y.val = 1): x.val * y.val <= U32.max :=
-  by
-    cases h <;> scalar_tac
-
 set_option maxRecDepth 200
 
-set_option maxHeartbeats 2000000
+set_option maxHeartbeats 4000000
 theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.invariant) (br : bit_reader.BitReader) (state : Std.U32) :
     self.read br state ⦃ r => True ⦄
 :=
@@ -116,10 +187,10 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
     /- <;> try -/ 
     /-   have : map_to_alias.val = 0 ∨ map_to_alias.val = 1 := by scalar_tac -/
     /-   cases this <;> scalar_tac -/
-    . have : i4.val < 2^16 := by sorry -- bv_tac 32
-      have : pos.val < 2^12 := by sorry -- bv_tac 32
+    . have : i4.val < 2^16 := by simp_all; bv_tac 32
+      have : pos.val < 2^12 := by simp_all; bv_tac 32
       scalar_tac
-    . have : i10.val < 2^20 := by sorry -- v_tac 32
+    . have : i10.val < 2^20 := by simp_all; bv_tac 32
       have h : bucket = self.buckets.val[i3.val] := by
         simp_all[alloc.vec.Vec.deref]
         grind
@@ -133,7 +204,7 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
         simp [global_simps] at *
         bv_tac 32
       scalar_tac
-    . have : i10.val < 2^20 := by sorry -- bv_tac 32
+    . have : i10.val < 2^20 := by simp_all; bv_tac 32
       have h : bucket = self.buckets.val[i3.val] := by
         simp_all[alloc.vec.Vec.deref]
         grind
@@ -146,6 +217,6 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
       have : dist1.val < 2^12 := by
         simp [global_simps] at *
         bv_tac 32
-      have : offset1.val < dist + 2^12 := by sorry -- bv_tac 32
+      have : offset1.val < dist + 2^12 := by simp_all; bv_tac 32
       scalar_tac 
     . sorry -- need to specify br.peek
