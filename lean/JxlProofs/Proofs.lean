@@ -6,8 +6,9 @@ open Aeneas Aeneas.Std Result Error
 namespace jxl
 
 open entropy_coding.ans
+open jxl.bit_reader
 
--- TYPES
+-- INVARIANTS OVER TYPES
 
 @[simp]
 def entropy_coding.ans.Bucket.invariant (self: Bucket): Bool :=
@@ -33,13 +34,19 @@ def bucket_index (hist: AnsHistogram) (state: U32): Result Std.Usize :=
     -- coercion that is not recognized by the implementation of progress*
     Result.ok (Usize.ofNatCore r.val (by scalar_tac))
 
+-- SPECIFYING BITREADER
+
+@[step]
+theorem refill_slow_does_not_panic (self: BitReader): self.refill_slow ⦃ new_self ⦄ := by
+  sorry
+
+-- THEOREMZ
+
 @[simp]
 lemma ad_hoc (x: U32): x.val &&& 0xfff = x.val % 2^12 :=
   by
     have : 0xfff = 2^12 - 1 := by rfl
     rw [this, Nat.and_two_pow_sub_one_eq_mod]
-
--- THEOREMZ
 
 @[step]
 theorem bucket_index_is_in_bounds (hist: AnsHistogram) (inv: hist.invariant) (state: U32):
@@ -56,7 +63,6 @@ theorem bucket_index_is_in_bounds (hist: AnsHistogram) (inv: hist.invariant) (st
         (state.val % 4096) >>> hist.log_bucket_size.val < 2 ^ 12 >>> hist.log_bucket_size.val := 
           by
             simp only [Nat.shiftRight_eq_div_pow]
-            have : state.val % 4096 < 4096 := by scalar_tac
             have : 2 ^ hist.log_bucket_size.val ∣ 2^12 := by simp_scalar
             simp_scalar [Nat.lt_div_iff_mul_lt_of_dvd, Nat.div_mul_le_self]
             apply (Nat.lt_of_le_of_lt (Nat.div_mul_le_self _ _))
@@ -84,8 +90,6 @@ theorem bucket_index_eq {a} (self: AnsHistogram) (i: U32) (f: Usize -> U32 -> Re
     congr
     scalar_tac
 
-/- attribute [bv_tac_simps,simp] LOG_SUM_PROBS -/
-
 @[simp,scalar_tac x.val * y.val]
 theorem times_zero_or_1 (x y: U32) (h: y.val = 0 ∨ y.val = 1): x.val * y.val <= U32.max :=
   by
@@ -105,7 +109,6 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
     simp_all only [global_simps]
     rw [bucket_index_eq]
     step*
-    /- . simp_all [global_simps] -/
     . have : self.buckets.val.length.isPowerOfTwo := ⟨ _, by assumption ⟩
       scalar_tac
     . have : self.buckets.len = self.buckets.deref.length := rfl
