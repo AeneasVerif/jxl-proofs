@@ -59,11 +59,37 @@ theorem or_lt2 (x y: U32): y <= x ||| y := by bv_tac 32
 
 @[simp,scalar_tac x ||| y]
 theorem or_lt2_usize (x y: Usize): y <= x ||| y := by
-  sorry
+  -- gemini-generated proof; can we do better?
+  let ⟨bv_x⟩ := x
+  let ⟨bv_y⟩ := y
+  cases h_bits : System.Platform.numBits_eq
+  . rename_i h
+    rw [UScalar.le_equiv, UScalar.val_or]
+    unfold UScalar.val
+    rw [← BitVec.toNat_or]
+    have : bv_y ≤ bv_x ||| bv_y := by
+      revert bv_x bv_y
+      unfold UScalarTy.numBits
+      rw [h]
+      intro bv_x bv_y
+      simp at bv_x bv_y
+      bv_tac
+    exact this
+  . rename_i h
+    rw [UScalar.le_equiv, UScalar.val_or]
+    unfold UScalar.val
+    rw [← BitVec.toNat_or]
+    have : bv_y ≤ bv_x ||| bv_y := by
+      revert bv_x bv_y
+      unfold UScalarTy.numBits
+      rw [h]
+      intro bv_x bv_y
+      simp at bv_x bv_y
+      bv_tac
+    exact this
 
 @[simp,scalar_tac x.len]
 theorem len_is_len (x: alloc.vec.Vec a): x.len = x.deref.length := by rfl
-
 
 -- SPECIFYING BITREADER
 
@@ -101,6 +127,12 @@ theorem read_u64_spec (bytes: Slice Std.U8) (h: bytes.len ≥ Usize.ofNat 8): re
   step* 
   <;> grind
 
+theorem or_lt_pow2 (x y: U64) (h: x < 64#u64 ∧ y < 64#u64): x ||| y < 64#u64 := by
+  bv_tac 64
+
+theorem or_lt_pow2_usize (x y: Usize) (h: x < 64#usize ∧ y < 64#usize): x ||| y < 64#usize := by
+  sorry
+
 @[step]
 theorem refill_does_not_panic (self: BitReader) (h: self.invariant): self.refill ⦃ r => True ⦄ := by
   unfold BitReader.refill
@@ -114,6 +146,28 @@ theorem refill_does_not_panic (self: BitReader) (h: self.invariant): self.refill
     scalar_tac
   . have: Usize.ofNat 56 ≤ self.bits_in_buf ||| Usize.ofNat 56 := by apply or_lt2_usize
     grind
+  . have : self.bits_in_buf ||| 56#usize < 64#usize := by
+      apply or_lt_pow2_usize
+      constructor
+      . assumption
+      . simp
+    scalar_tac
+
+-- TODO: peek must:
+-- 1. restore the invariant
+-- 2. establish a predicate that says that it ensures that there is enough data for a
+--    call to consume_optimistic to succeed, or that the invariant is destroyed and that then we are
+--    at the end of the file
+
+@[step]
+theorem peek_does_not_panic (self : BitReader) (num : Usize) (h: num <= MAX_BITS_PER_CALL): self.peek num ⦃ r => True ⦄ := by
+  unfold BitReader.peek
+  simp_all
+  simp_all only [global_simps]
+  step*
+  <;> try scalar_tac
+  . simp; scalar_tac
+  . sorry
   . sorry
 
 -- THEOREMZ
@@ -219,4 +273,5 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
         bv_tac 32
       have : offset1.val < dist + 2^12 := by simp_all; bv_tac 32
       scalar_tac 
-    . sorry -- need to specify br.peek
+    . simp [global_simps]
+    . sorry
