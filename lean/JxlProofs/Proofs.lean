@@ -64,16 +64,12 @@ theorem or_lt2_usize (x y: Usize): y <= x ||| y := by
   cases System.Platform.numBits_eq <;>
   . rename_i h
     have : bv_y ≤ bv_x ||| bv_y := by
-      -- We want to do something like `subst h` to rewrite the types knowing about the term
-      -- equality. However, `subst` only takes type equalities, so this is basically a trick to do
-      -- that without `subst`.
       revert bv_x bv_y
       unfold UScalarTy.numBits
       rw [h]
       intro bv_x bv_y
       simp at bv_x bv_y
       bv_tac
-    -- Not sure I understand why `exact` is needed here.
     exact this
 
 @[simp,scalar_tac x.len]
@@ -118,8 +114,35 @@ theorem read_u64_spec (bytes: Slice Std.U8) (h: bytes.len ≥ Usize.ofNat 8): re
 theorem or_lt_pow2 (x y: U64) (h: x < 64#u64 ∧ y < 64#u64): x ||| y < 64#u64 := by
   bv_tac 64
 
+/- Attempted shorter proof along the lines of this but couldn't figure out a way to conclude. -/
+
+/-
+
++theorem elim_toNat (x: BitVec n) (y: Nat) (h: x.toNat < y) (h2: y < 2^n): x < BitVec.ofNat n y := by
++  rw [BitVec.lt_def, BitVec.toNat_ofNat, Nat.mod_eq_of_lt h2]
++  exact h
+
+then ... or_lt_pow2_usize ...
+  let ⟨bv_x⟩ := x
+  let ⟨bv_y⟩ := y
+  cases System.Platform.numBits_eq <;>
+  . rename_i h
+    have : bv_x ||| bv_y < 64 := by
+      rw [UScalar.lt_equiv] at hx hy
+      simp only [UScalar.val,Usize.ofNat,UScalar.ofNat] at hx hy
+      revert bv_x bv_y
+      unfold UScalarTy.numBits
+      simp
+      rw [h]
+      intros bv_x hx bv_y hy
+      apply elim_toNat at hx
+      apply elim_toNat at hy 
+      simp at hx hy
+      bv_tac
+    sorry
+-/
+
 theorem or_lt_pow2_usize (x y: Usize) (h: x < 64#usize ∧ y < 64#usize): x ||| y < 64#usize := by
-  -- FIXME: horrible Gemini-generated proof; needs improvement
   let ⟨bv_x⟩ := x
   let ⟨bv_y⟩ := y
   cases h_bits : System.Platform.numBits_eq
@@ -175,7 +198,7 @@ theorem refill_does_not_panic (self: BitReader) (h: self.invariant): self.refill
   unfold BitReader.refill
   step*
   simp at h
-  <;> try scalar_tac
+  . grind
   . simp at h
     grind
   . cases System.Platform.numBits_eq <;> grind
@@ -183,12 +206,8 @@ theorem refill_does_not_panic (self: BitReader) (h: self.invariant): self.refill
     scalar_tac
   . have: Usize.ofNat 56 ≤ self.bits_in_buf ||| Usize.ofNat 56 := by apply or_lt2_usize
     grind
-  . have : self.bits_in_buf ||| 56#usize < 64#usize := by
-      apply or_lt_pow2_usize
-      constructor
-      . assumption
-      . simp
-    scalar_tac
+  . have : self.bits_in_buf ||| 56#usize < 64#usize := by apply or_lt_pow2_usize; grind
+    grind
 
 -- TODO: peek must:
 -- 1. restore the invariant
@@ -242,23 +261,13 @@ theorem bucket_index_is_in_bounds (hist: AnsHistogram) (inv: hist.invariant) (st
 :=
   by
     unfold bucket_index
-    simp_all
-    simp_all only [global_simps]
+    simp_all [global_simps]
     step*
     simp[*]
-    have : (state.val % 4096) >>> hist.log_bucket_size.val < 2 ^ (12 - hist.log_bucket_size.val) :=
-      calc
-        (state.val % 4096) >>> hist.log_bucket_size.val < 2 ^ 12 >>> hist.log_bucket_size.val := 
-          by
-            simp only [Nat.shiftRight_eq_div_pow]
-            have : 2 ^ hist.log_bucket_size.val ∣ 2^12 := by simp_scalar
-            simp_scalar [Nat.lt_div_iff_mul_lt_of_dvd, Nat.div_mul_le_self]
-            apply (Nat.lt_of_le_of_lt (Nat.div_mul_le_self _ _))
-            scalar_tac
-        _ = 2 ^ (12 - hist.log_bucket_size.val) := 
-          by
-            simp only [Nat.shiftRight_eq_div_pow]
-            apply Nat.pow_div <;> scalar_tac
+    have : (state.val % 4096) >>> hist.log_bucket_size.val < 2 ^ (12 - hist.log_bucket_size.val) := by
+      rw [Nat.shiftRight_eq_div_pow]
+      apply Nat.div_lt_of_lt_mul
+      rw [← Nat.pow_add, Nat.add_sub_of_le] <;> scalar_tac
     assumption
 
 theorem bucket_index_eq {a} (self: AnsHistogram) (i: U32) (f: Usize -> U32 -> Result a):
@@ -292,7 +301,7 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
     simp_all only [global_simps]
     rw [bucket_index_eq]
     step*
-    . have : self.buckets.val.length.isPowerOfTwo := ⟨ _, by assumption ⟩
+    . have : (self.buckets.val).length.isPowerOfTwo := ⟨ _, inv1 ⟩
       scalar_tac
     . have : self.buckets.len = self.buckets.deref.length := rfl
       scalar_tac
@@ -300,13 +309,9 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
       have : pos.val < 2^12 := by simp_all; bv_tac 32
       scalar_tac
     . have : i10.val < 2^20 := by simp_all; bv_tac 32
-      have h : bucket = self.buckets.val[i3.val] := by
-        simp_all[alloc.vec.Vec.deref]
-        grind
       have : bucket.invariant := by
-        have := inv2 bucket
-        have : bucket ∈ self.buckets.val := by simp [h]
-        grind
+        rw [bucket_post]
+        apply inv2; apply List.get_mem
       simp at this
       rcases this with ⟨ bi1, bi2, bi3 ⟩
       simp [global_simps] at bi1 bi2 bi3
@@ -315,13 +320,9 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
         bv_tac 32
       scalar_tac
     . have : i10.val < 2^20 := by simp_all; bv_tac 32
-      have h : bucket = self.buckets.val[i3.val] := by
-        simp_all[alloc.vec.Vec.deref]
-        grind
       have : bucket.invariant := by
-        have := inv2 bucket
-        have : bucket ∈ self.buckets.val := by simp [h]
-        grind
+        rw [bucket_post]
+        apply inv2; apply List.get_mem
       simp at this
       rcases this with ⟨ bi1, bi2, bi3 ⟩
       simp [global_simps] at bi1 bi2 bi3
@@ -330,15 +331,8 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
         bv_tac 32
       have : bucket.alias_offset.val < 2^12 := by simp_all; bv_tac 32
       have : offset.val <= 2^12 - 1 := by
-        calc
-          offset.val <= i4.val := by
-            -- FIXME: why is this not triggering automatically? I thought we had a pattern
-            have : map_to_alias.val = 0 ∨ map_to_alias.val = 1 := by scalar_tac
-            cases this <;> scalar_tac
-          _ <= bucket.alias_offset := by
-            scalar_tac
-          _ <= 2^12 - 1 := by
-            simp_all; bv_tac 32
+        have : map_to_alias.val = 0 ∨ map_to_alias.val = 1 := by scalar_tac
+        cases this <;> scalar_tac
       scalar_tac
     . simp [global_simps]
     . simp [global_simps]
