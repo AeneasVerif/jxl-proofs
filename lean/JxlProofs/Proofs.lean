@@ -59,33 +59,21 @@ theorem or_lt2 (x y: U32): y <= x ||| y := by bv_tac 32
 
 @[simp,scalar_tac x ||| y]
 theorem or_lt2_usize (x y: Usize): y <= x ||| y := by
-  -- gemini-generated proof; can we do better?
   let ⟨bv_x⟩ := x
   let ⟨bv_y⟩ := y
-  cases h_bits : System.Platform.numBits_eq
+  cases System.Platform.numBits_eq <;>
   . rename_i h
-    rw [UScalar.le_equiv, UScalar.val_or]
-    unfold UScalar.val
-    rw [← BitVec.toNat_or]
     have : bv_y ≤ bv_x ||| bv_y := by
+      -- We want to do something like `subst h` to rewrite the types knowing about the term
+      -- equality. However, `subst` only takes type equalities, so this is basically a trick to do
+      -- that without `subst`.
       revert bv_x bv_y
       unfold UScalarTy.numBits
       rw [h]
       intro bv_x bv_y
       simp at bv_x bv_y
       bv_tac
-    exact this
-  . rename_i h
-    rw [UScalar.le_equiv, UScalar.val_or]
-    unfold UScalar.val
-    rw [← BitVec.toNat_or]
-    have : bv_y ≤ bv_x ||| bv_y := by
-      revert bv_x bv_y
-      unfold UScalarTy.numBits
-      rw [h]
-      intro bv_x bv_y
-      simp at bv_x bv_y
-      bv_tac
+    -- Not sure I understand why `exact` is needed here.
     exact this
 
 @[simp,scalar_tac x.len]
@@ -131,6 +119,7 @@ theorem or_lt_pow2 (x y: U64) (h: x < 64#u64 ∧ y < 64#u64): x ||| y < 64#u64 :
   bv_tac 64
 
 theorem or_lt_pow2_usize (x y: Usize) (h: x < 64#usize ∧ y < 64#usize): x ||| y < 64#usize := by
+  -- FIXME: horrible Gemini-generated proof; needs improvement
   let ⟨bv_x⟩ := x
   let ⟨bv_y⟩ := y
   cases h_bits : System.Platform.numBits_eq
@@ -207,16 +196,37 @@ theorem refill_does_not_panic (self: BitReader) (h: self.invariant): self.refill
 --    call to consume_optimistic to succeed, or that the invariant is destroyed and that then we are
 --    at the end of the file
 
+theorem shift_gt_1 (num: Usize) (h: num <= MAX_BITS_PER_CALL): (1#u64).val ≤ 1 <<< num.val % U64.size := by
+  simp_all [global_simps]
+  have h1 : 1 <<< num.val < 2^64 - 1 := by
+    calc
+      1 <<< num.val = 2^num.val := by
+        grind
+      _ <= 2^56 := by
+        apply Nat.pow_le_pow_right
+        <;> scalar_tac
+      _ < 2^64 - 1 := by
+        grind
+  simp [U64.size,U64.numBits]
+  grind [Nat.mod_eq_of_lt,Nat.pow_le_pow_right]
+
+@[step]
+theorem consum_optimistic_does_not_panic (self : BitReader) (num : Usize) (h: num <= MAX_BITS_PER_CALL): self.consume_optimistic num ⦃ r => True ⦄ := by
+  unfold BitReader.consume_optimistic
+  simp_all
+  simp_all only [global_simps]
+  simp [lift] -- WHY?!
+  step*
+
 @[step]
 theorem peek_does_not_panic (self : BitReader) (num : Usize) (h: num <= MAX_BITS_PER_CALL): self.peek num ⦃ r => True ⦄ := by
   unfold BitReader.peek
   simp_all
   simp_all only [global_simps]
   step*
-  <;> try scalar_tac
   . simp; scalar_tac
-  . sorry
-  . sorry
+  . rw [i4_post1]; apply shift_gt_1; simp [global_simps]; assumption
+  . rw [i4_post1]; apply shift_gt_1; simp [global_simps]; assumption
 
 -- THEOREMZ
 
@@ -286,9 +296,6 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
       scalar_tac
     . have : self.buckets.len = self.buckets.deref.length := rfl
       scalar_tac
-    /- <;> try -/ 
-    /-   have : map_to_alias.val = 0 ∨ map_to_alias.val = 1 := by scalar_tac -/
-    /-   cases this <;> scalar_tac -/
     . have : i4.val < 2^16 := by simp_all; bv_tac 32
       have : pos.val < 2^12 := by simp_all; bv_tac 32
       scalar_tac
@@ -333,4 +340,5 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
             simp_all; bv_tac 32
       scalar_tac
     . simp [global_simps]
-    . sorry
+    . simp [global_simps]
+      scalar_tac
