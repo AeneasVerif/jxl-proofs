@@ -287,7 +287,7 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
   by
     unfold entropy_coding.ans.AnsHistogram.read
     have inv2 := inv
-    simp at inv
+    simp [-entropy_coding.ans.Bucket.invariant] at inv
     rcases inv with ⟨ inv0, inv1, inv2 ⟩
     simp_all only [global_simps]
     rw [bucket_index_eq]
@@ -305,10 +305,11 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
         grind
       have : bucket.invariant := by
         have := inv2 bucket
-        simp [h] at this
-        simp [global_simps,h,this]
+        have : bucket ∈ self.buckets.val := by simp [h]
+        grind
       simp at this
-      split_conjs at this
+      rcases this with ⟨ bi1, bi2, bi3 ⟩
+      simp [global_simps] at bi1 bi2 bi3
       have : dist1.val < 2^12 := by
         simp [global_simps] at *
         bv_tac 32
@@ -319,8 +320,8 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
         grind
       have : bucket.invariant := by
         have := inv2 bucket
-        simp [h] at this
-        simp [global_simps,h,this]
+        have : bucket ∈ self.buckets.val := by simp [h]
+        grind
       simp at this
       rcases this with ⟨ bi1, bi2, bi3 ⟩
       simp [global_simps] at bi1 bi2 bi3
