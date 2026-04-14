@@ -315,11 +315,22 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
         simp [h] at this
         simp [global_simps,h,this]
       simp at this
-      split_conjs at this
+      rcases this with ⟨ bi1, bi2, bi3 ⟩
+      simp [global_simps] at bi1 bi2 bi3
       have : dist1.val < 2^12 := by
         simp [global_simps] at *
         bv_tac 32
-      have : offset1.val < dist + 2^12 := by simp_all; bv_tac 32
-      scalar_tac 
+      have : bucket.alias_offset.val < 2^12 := by simp_all; bv_tac 32
+      have : offset.val <= 2^12 - 1 := by
+        calc
+          offset.val <= i4.val := by
+            -- FIXME: why is this not triggering automatically? I thought we had a pattern
+            have : map_to_alias.val = 0 ∨ map_to_alias.val = 1 := by scalar_tac
+            cases this <;> scalar_tac
+          _ <= bucket.alias_offset := by
+            scalar_tac
+          _ <= 2^12 - 1 := by
+            simp_all; bv_tac 32
+      scalar_tac
     . simp [global_simps]
     . sorry
