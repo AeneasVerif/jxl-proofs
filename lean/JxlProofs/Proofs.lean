@@ -64,12 +64,16 @@ theorem or_lt2_usize (x y: Usize): y <= x ||| y := by
   cases System.Platform.numBits_eq <;>
   . rename_i h
     have : bv_y ≤ bv_x ||| bv_y := by
+      -- We want to do something like `subst h` to rewrite the types knowing about the term
+      -- equality. However, `subst` only takes type equalities, so this is basically a trick to do
+      -- that without `subst`.
       revert bv_x bv_y
       unfold UScalarTy.numBits
       rw [h]
       intro bv_x bv_y
       simp at bv_x bv_y
       bv_tac
+    -- Not sure I understand why `exact` is needed here.
     exact this
 
 @[simp,scalar_tac x.len]
@@ -143,6 +147,7 @@ then ... or_lt_pow2_usize ...
 -/
 
 theorem or_lt_pow2_usize (x y: Usize) (h: x < 64#usize ∧ y < 64#usize): x ||| y < 64#usize := by
+  -- FIXME: horrible Gemini-generated proof; needs improvement
   let ⟨bv_x⟩ := x
   let ⟨bv_y⟩ := y
   cases h_bits : System.Platform.numBits_eq
