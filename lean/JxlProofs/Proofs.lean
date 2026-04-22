@@ -67,24 +67,24 @@ theorem or_lt2 (x y: U32): y <= x ||| y := by bv_tac 32
 
 grind_pattern [agrind] or_lt2 => x ||| y
 
+theorem case_usize (P : {n : Nat} → BitVec n → BitVec n → Prop)
+  (h32 : ∀ (x y : BitVec 32), P x y)
+  (h64 : ∀ (x y : BitVec 64), P x y) :
+  ∀ (x y : Usize), P x.bv y.bv := by
+  intro x y
+  rcases System.Platform.numBits_eq with h | h
+  · exact (Eq.ndrec (motive := fun n => ∀ (a b : BitVec n), P a b) h32 h.symm) x.bv y.bv
+  · exact (Eq.ndrec (motive := fun n => ∀ (a b : BitVec n), P a b) h64 h.symm) x.bv y.bv
+
 @[simp,scalar_tac x ||| y]
-theorem or_lt2_usize (x y: Usize): y <= x ||| y := by
-  let ⟨bv_x⟩ := x
-  let ⟨bv_y⟩ := y
-  cases System.Platform.numBits_eq <;>
-  . rename_i h
-    have : bv_y ≤ bv_x ||| bv_y := by
-      -- We want to do something like `subst h` to rewrite the types knowing about the term
-      -- equality. However, `subst` only takes type equalities, so this is basically a trick to do
-      -- that without `subst`.
-      revert bv_x bv_y
-      unfold UScalarTy.numBits
-      rw [h]
-      simp
-      intro bv_x bv_y
-      bv_tac
-    -- Not sure I understand why `exact` is needed here.
-    exact this
+theorem or_lt2_usize (x y : Usize) : y ≤ x ||| y := by
+  bvify System.Platform.numBits
+  apply case_usize (fun x y => y ≤ x ||| y) <;> intros <;> bv_tac
+
+theorem or_lt_pow2_usize (x y : Usize) (h : x < 64#usize ∧ y < 64#usize) :
+    x ||| y < 64#usize := by
+  bvify System.Platform.numBits
+  apply case_usize (fun x y => x < 64 ∧ y < 64 → x ||| y < 64) <;> intros <;> bv_tac
 
 grind_pattern [agrind] or_lt2_usize => x ||| y
 
@@ -132,86 +132,6 @@ theorem read_u64_spec (bytes: Slice Std.U8) (h: bytes.len ≥ Usize.ofNat 8): re
 
 theorem or_lt_pow2 (x y: U64) (h: x < 64#u64 ∧ y < 64#u64): x ||| y < 64#u64 := by
   bv_tac 64
-
-/- Attempted shorter proof along the lines of this but couldn't figure out a way to conclude. -/
-
-/-
-
-+theorem elim_toNat (x: BitVec n) (y: Nat) (h: x.toNat < y) (h2: y < 2^n): x < BitVec.ofNat n y := by
-+  rw [BitVec.lt_def, BitVec.toNat_ofNat, Nat.mod_eq_of_lt h2]
-+  exact h
-
-then ... or_lt_pow2_usize ...
-  let ⟨bv_x⟩ := x
-  let ⟨bv_y⟩ := y
-  cases System.Platform.numBits_eq <;>
-  . rename_i h
-    have : bv_x ||| bv_y < 64 := by
-      rw [UScalar.lt_equiv] at hx hy
-      simp only [UScalar.val,Usize.ofNat,UScalar.ofNat] at hx hy
-      revert bv_x bv_y
-      unfold UScalarTy.numBits
-      simp
-      rw [h]
-      intros bv_x hx bv_y hy
-      apply elim_toNat at hx
-      apply elim_toNat at hy 
-      simp at hx hy
-      bv_tac
-    sorry
--/
-
-theorem or_lt_pow2_usize (x y: Usize) (h: x < 64#usize ∧ y < 64#usize): x ||| y < 64#usize := by
-  -- FIXME: horrible Gemini-generated proof; needs improvement
-  let ⟨bv_x⟩ := x
-  let ⟨bv_y⟩ := y
-  cases h_bits : System.Platform.numBits_eq
-  . rename_i h_bits_val
-    have h1 : bv_x.toNat < 64 := by
-      simp [h_bits_val, UScalar.lt_equiv, UScalar.val] at h
-      exact h.1
-    have h2 : bv_y.toNat < 64 := by
-      simp [h_bits_val, UScalar.lt_equiv, UScalar.val] at h
-      exact h.2
-    clear h
-    have helper : ∀ (b1 b2 : BitVec 32), b1.toNat < 64 → b2.toNat < 64 → (b1 ||| b2).toNat < 64 := by
-      intro b1 b2 hb1 hb2
-      change b1 < BitVec.ofNat 32 64 at hb1
-      change b2 < BitVec.ofNat 32 64 at hb2
-      show (b1 ||| b2) < BitVec.ofNat 32 64
-      bv_tac 32
-    rw [UScalar.lt_equiv, UScalar.val_or]
-    unfold UScalar.val
-    simp [h_bits_val]
-    rw [← BitVec.toNat_or]
-    revert bv_x bv_y h1 h2
-    unfold UScalarTy.numBits
-    rw [h_bits_val]
-    intro bv_x bv_y h1 h2
-    apply helper <;> assumption
-  . rename_i h_bits_val
-    have h1 : bv_x.toNat < 64 := by
-      simp [h_bits_val, UScalar.lt_equiv, UScalar.val] at h
-      exact h.1
-    have h2 : bv_y.toNat < 64 := by
-      simp [h_bits_val, UScalar.lt_equiv, UScalar.val] at h
-      exact h.2
-    clear h
-    have helper : ∀ (b1 b2 : BitVec 64), b1.toNat < 64 → b2.toNat < 64 → (b1 ||| b2).toNat < 64 := by
-      intro b1 b2 hb1 hb2
-      change b1 < BitVec.ofNat 64 64 at hb1
-      change b2 < BitVec.ofNat 64 64 at hb2
-      show (b1 ||| b2) < BitVec.ofNat 64 64
-      bv_tac 64
-    rw [UScalar.lt_equiv, UScalar.val_or]
-    unfold UScalar.val
-    simp [h_bits_val]
-    rw [← BitVec.toNat_or]
-    revert bv_x bv_y h1 h2
-    unfold UScalarTy.numBits
-    rw [h_bits_val]
-    intro bv_x bv_y h1 h2
-    apply helper <;> assumption
 
 @[step]
 theorem refill_does_not_panic (self: BitReader) (h: self.invariant): self.refill ⦃ r => True ⦄ := by
@@ -305,6 +225,8 @@ theorem bucket_index_eq {a} (self: AnsHistogram) (i: U32) (f: Usize -> U32 -> Re
 
 set_option maxRecDepth 200
 
+attribute [scalar_tac_simps,grind =,bvify] MAX_BITS_PER_CALL LOG_SUM_PROBS
+
 set_option maxHeartbeats 4000000
 theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.invariant) (br : bit_reader.BitReader) (state : Std.U32) :
     self.read br state ⦃ r => True ⦄
@@ -330,7 +252,6 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
         apply inv2; apply List.get_mem
       simp at this
       rcases this with ⟨ bi1, bi2, bi3 ⟩
-      simp [global_simps] at bi1 bi2 bi3
       have : dist1.val < 2^12 := by
         simp [global_simps] at *
         bv_tac 32
@@ -341,7 +262,6 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
         apply inv2; apply List.get_mem
       simp at this
       rcases this with ⟨ bi1, bi2, bi3 ⟩
-      simp [global_simps] at bi1 bi2 bi3
       have : dist1.val < 2^12 := by
         simp [global_simps] at *
         bv_tac 32
@@ -349,7 +269,4 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
       have : offset.val <= 2^12 - 1 := by
         have : map_to_alias.val = 0 ∨ map_to_alias.val = 1 := by scalar_tac
         cases this <;> scalar_tac
-      scalar_tac
-    . simp [global_simps]
-    . simp [global_simps]
       scalar_tac
