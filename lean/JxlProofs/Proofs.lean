@@ -45,17 +45,27 @@ theorem times_zero_or_1 (x y: U32) (h: y.val = 0 ∨ y.val = 1): x.val * y.val <
   by
     cases h <;> scalar_tac
 
+grind_pattern [agrind] times_zero_or_1 => x.val * y.val where gen < 1
+
 @[simp,scalar_tac x &&& y]
 theorem and_lt1 (x y: U32): x &&& y <= x := by bv_tac 32
+
+grind_pattern [agrind] and_lt1 => x &&& y
 
 @[simp,scalar_tac x &&& y]
 theorem and_lt2 (x y: U32): x &&& y <= y := by bv_tac 32
 
+grind_pattern [agrind] and_lt2 => x &&& y
+
 @[simp,scalar_tac x ||| y]
 theorem or_lt1 (x y: U32): x <= x ||| y := by bv_tac 32
 
+grind_pattern [agrind] or_lt1 => x ||| y
+
 @[simp,scalar_tac x ||| y]
 theorem or_lt2 (x y: U32): y <= x ||| y := by bv_tac 32
+
+grind_pattern [agrind] or_lt2 => x ||| y
 
 @[simp,scalar_tac x ||| y]
 theorem or_lt2_usize (x y: Usize): y <= x ||| y := by
@@ -70,14 +80,19 @@ theorem or_lt2_usize (x y: Usize): y <= x ||| y := by
       revert bv_x bv_y
       unfold UScalarTy.numBits
       rw [h]
+      simp
       intro bv_x bv_y
-      simp at bv_x bv_y
       bv_tac
     -- Not sure I understand why `exact` is needed here.
     exact this
 
+grind_pattern [agrind] or_lt2_usize => x ||| y
+
 @[simp,scalar_tac x.len]
 theorem len_is_len (x: alloc.vec.Vec a): x.len = x.deref.length := by rfl
+
+grind_pattern [agrind] len_is_len => x.len
+grind_pattern [agrind] len_is_len => x.deref.length
 
 -- SPECIFYING BITREADER
 
@@ -209,8 +224,6 @@ theorem refill_does_not_panic (self: BitReader) (h: self.invariant): self.refill
   . cases System.Platform.numBits_eq <;> grind
   . simp
     scalar_tac
-  . have: Usize.ofNat 56 ≤ self.bits_in_buf ||| Usize.ofNat 56 := by apply or_lt2_usize
-    grind
   . have : self.bits_in_buf ||| 56#usize < 64#usize := by apply or_lt_pow2_usize; grind
     grind
 
@@ -227,8 +240,7 @@ theorem shift_gt_1 (num: Usize) (h: num <= MAX_BITS_PER_CALL): (1#u64).val ≤ 1
       1 <<< num.val = 2^num.val := by
         grind
       _ <= 2^56 := by
-        apply Nat.pow_le_pow_right
-        <;> scalar_tac
+        simp_scalar
       _ < 2^64 - 1 := by
         grind
   simp [U64.size,U64.numBits]
@@ -239,7 +251,7 @@ theorem consum_optimistic_does_not_panic (self : BitReader) (num : Usize) (h: nu
   unfold BitReader.consume_optimistic
   simp_all
   simp_all only [global_simps]
-  simp [lift] -- WHY?!
+  simp [lift] -- TODO: upgrade Aeneas to get rid of this
   step*
 
 @[step]
@@ -249,8 +261,7 @@ theorem peek_does_not_panic (self : BitReader) (num : Usize) (h: num <= MAX_BITS
   simp_all only [global_simps]
   step*
   . simp; scalar_tac
-  . rw [i4_post1]; apply shift_gt_1; simp [global_simps]; assumption
-  . rw [i4_post1]; apply shift_gt_1; simp [global_simps]; assumption
+  all_goals rw [i4_post1]; apply shift_gt_1; simp [global_simps]; assumption
 
 -- THEOREMZ
 
@@ -308,9 +319,9 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
     step*
     . have : (self.buckets.val).length.isPowerOfTwo := ⟨ _, inv1 ⟩
       scalar_tac
-    . have : self.buckets.len = self.buckets.deref.length := rfl
-      scalar_tac
-    . have : i4.val < 2^16 := by simp_all; bv_tac 32
+    . have : i4.val < 2^16 := by
+        simp_all only [alloc.vec.Vec.len, UScalar.ofNatCore_val_eq, Usize.ofNatCore_val_eq]
+        bv_tac 32
       have : pos.val < 2^12 := by simp_all; bv_tac 32
       scalar_tac
     . have : i10.val < 2^20 := by simp_all; bv_tac 32
