@@ -10,17 +10,17 @@ open jxl.bit_reader
 
 -- INVARIANTS OVER TYPES
 
-@[simp]
+@[simp,grind]
 def bit_reader.BitReader.invariant (self: bit_reader.BitReader) :=
   self.bits_in_buf < Usize.ofNat 64
 
-@[simp]
+@[simp,grind]
 def entropy_coding.ans.Bucket.invariant (self: Bucket): Bool :=
   self.dist.val < 2^LOG_SUM_PROBS.val ∧
   self.alias_dist_xor.val < 2^LOG_SUM_PROBS.val ∧
   self.alias_offset.val < self.dist
 
-@[simp]
+@[simp,grind]
 def entropy_coding.ans.AnsHistogram.invariant (self: AnsHistogram) :=
   self.log_bucket_size <= LOG_SUM_PROBS ∧
   self.buckets.len.val = 2^(LOG_SUM_PROBS.val - self.log_bucket_size.val) ∧
@@ -137,10 +137,7 @@ theorem or_lt_pow2 (x y: U64) (h: x < 64#u64 ∧ y < 64#u64): x ||| y < 64#u64 :
 theorem refill_does_not_panic (self: BitReader) (h: self.invariant): self.refill ⦃ r => True ⦄ := by
   unfold BitReader.refill
   step*
-  simp at h
-  . grind
-  . simp at h
-    grind
+  <;> try grind
   . cases System.Platform.numBits_eq <;> grind
   . simp
     scalar_tac
@@ -153,8 +150,9 @@ theorem refill_does_not_panic (self: BitReader) (h: self.invariant): self.refill
 --    call to consume_optimistic to succeed, or that the invariant is destroyed and that then we are
 --    at the end of the file
 
+attribute [scalar_tac_simps,grind =,bvify] MAX_BITS_PER_CALL LOG_SUM_PROBS
+
 theorem shift_gt_1 (num: Usize) (h: num <= MAX_BITS_PER_CALL): (1#u64).val ≤ 1 <<< num.val % U64.size := by
-  simp_all [global_simps]
   have h1 : 1 <<< num.val < 2^64 - 1 := by
     calc
       1 <<< num.val = 2^num.val := by
@@ -169,19 +167,15 @@ theorem shift_gt_1 (num: Usize) (h: num <= MAX_BITS_PER_CALL): (1#u64).val ≤ 1
 @[step]
 theorem consum_optimistic_does_not_panic (self : BitReader) (num : Usize) (h: num <= MAX_BITS_PER_CALL): self.consume_optimistic num ⦃ r => True ⦄ := by
   unfold BitReader.consume_optimistic
-  simp_all
-  simp_all only [global_simps]
   simp [lift] -- TODO: upgrade Aeneas to get rid of this
   step*
 
 @[step]
 theorem peek_does_not_panic (self : BitReader) (num : Usize) (h: num <= MAX_BITS_PER_CALL): self.peek num ⦃ r => True ⦄ := by
   unfold BitReader.peek
-  simp_all
-  simp_all only [global_simps]
   step*
-  . simp; scalar_tac
-  all_goals rw [i4_post1]; apply shift_gt_1; simp [global_simps]; assumption
+  . grind
+  all_goals rw [i4_post1]; apply shift_gt_1; scalar_tac
 
 -- THEOREMZ
 
@@ -218,14 +212,11 @@ theorem bucket_index_eq {a} (self: AnsHistogram) (i: U32) (f: Usize -> U32 -> Re
   :=
   by
     simp [bucket_index,lift]
-    intros v
-    intros h
+    intros v h
     congr
     scalar_tac
 
 set_option maxRecDepth 200
-
-attribute [scalar_tac_simps,grind =,bvify] MAX_BITS_PER_CALL LOG_SUM_PROBS
 
 set_option maxHeartbeats 4000000
 theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.invariant) (br : bit_reader.BitReader) (state : Std.U32) :
@@ -236,36 +227,29 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
     have inv2 := inv
     simp [-entropy_coding.ans.Bucket.invariant] at inv
     rcases inv with ⟨ inv0, inv1, inv2 ⟩
-    simp_all only [global_simps]
     rw [bucket_index_eq]
     step*
     . have : (self.buckets.val).length.isPowerOfTwo := ⟨ _, inv1 ⟩
       scalar_tac
-    . have : i4.val < 2^16 := by
-        simp_all only [alloc.vec.Vec.len, UScalar.ofNatCore_val_eq, Usize.ofNatCore_val_eq]
-        bv_tac 32
-      have : pos.val < 2^12 := by simp_all; bv_tac 32
+    . have : i4.val < 2^16 := by bv_tac 32
+      have : pos.val < 2^12 := by bv_tac 32
       scalar_tac
-    . have : i10.val < 2^20 := by simp_all; bv_tac 32
+    . have : i10.val < 2^20 := by bv_tac 32
       have : bucket.invariant := by
         rw [bucket_post]
         apply inv2; apply List.get_mem
       simp at this
       rcases this with ⟨ bi1, bi2, bi3 ⟩
-      have : dist1.val < 2^12 := by
-        simp [global_simps] at *
-        bv_tac 32
+      have : dist1.val < 2^12 := by bv_tac 32
       scalar_tac
-    . have : i10.val < 2^20 := by simp_all; bv_tac 32
+    . have : i10.val < 2^20 := by bv_tac 32
       have : bucket.invariant := by
         rw [bucket_post]
         apply inv2; apply List.get_mem
       simp at this
       rcases this with ⟨ bi1, bi2, bi3 ⟩
-      have : dist1.val < 2^12 := by
-        simp [global_simps] at *
-        bv_tac 32
-      have : bucket.alias_offset.val < 2^12 := by simp_all; bv_tac 32
+      have : dist1.val < 2^12 := by bv_tac 32
+      have : bucket.alias_offset.val < 2^12 := by bv_tac 32
       have : offset.val <= 2^12 - 1 := by
         have : map_to_alias.val = 0 ∨ map_to_alias.val = 1 := by scalar_tac
         cases this <;> scalar_tac
