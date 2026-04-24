@@ -230,10 +230,10 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
     rw [bucket_index_eq]
     step*
     . have : (self.buckets.val).length.isPowerOfTwo := ⟨ _, inv1 ⟩
-      scalar_tac
+      grind
     . have : i4.val < 2^16 := by bv_tac 32
       have : pos.val < 2^12 := by bv_tac 32
-      scalar_tac
+      grind
     . have : i10.val < 2^20 := by bv_tac 32
       have : bucket.invariant := by
         rw [bucket_post]
@@ -241,7 +241,7 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
       simp at this
       rcases this with ⟨ bi1, bi2, bi3 ⟩
       have : dist1.val < 2^12 := by bv_tac 32
-      scalar_tac
+      grind
     . have : i10.val < 2^20 := by bv_tac 32
       have : bucket.invariant := by
         rw [bucket_post]
