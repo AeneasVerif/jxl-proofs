@@ -36,7 +36,7 @@ def bucket_index (hist: AnsHistogram) (state: U32): Result Std.Usize :=
     let r ← (state &&& U32.ofNat 0xfff) >>> hist.log_bucket_size
     -- avoids progress* being blocked because of an automatically-inserted
     -- coercion that is not recognized by the implementation of progress*
-    Result.ok (Usize.ofNatCore r.val (by scalar_tac))
+    pure (Usize.ofNatCore r.val (by scalar_tac))
 
 -- PROGRESS LEMMAS
 
@@ -234,22 +234,16 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
     . have : i4.val < 2^16 := by bv_tac 32
       have : pos.val < 2^12 := by bv_tac 32
       grind
-    . have : i10.val < 2^20 := by bv_tac 32
+    all_goals
+      have : i10.val < 2^20 := by bv_tac 32
       have : bucket.invariant := by
         rw [bucket_post]
         apply inv2; apply List.get_mem
       simp at this
       rcases this with ⟨ bi1, bi2, bi3 ⟩
       have : dist1.val < 2^12 := by bv_tac 32
-      grind
-    . have : i10.val < 2^20 := by bv_tac 32
-      have : bucket.invariant := by
-        rw [bucket_post]
-        apply inv2; apply List.get_mem
-      simp at this
-      rcases this with ⟨ bi1, bi2, bi3 ⟩
-      have : dist1.val < 2^12 := by bv_tac 32
-      have : bucket.alias_offset.val < 2^12 := by bv_tac 32
+    . grind
+    . have : bucket.alias_offset.val < 2^12 := by bv_tac 32
       have : offset.val <= 2^12 - 1 := by
         have : map_to_alias.val = 0 ∨ map_to_alias.val = 1 := by scalar_tac
         cases this <;> scalar_tac
