@@ -36,7 +36,7 @@ def bucket_index (hist: AnsHistogram) (state: U32): Result Std.Usize :=
     let r ← (state &&& U32.ofNat 0xfff) >>> hist.log_bucket_size
     -- avoids progress* being blocked because of an automatically-inserted
     -- coercion that is not recognized by the implementation of progress*
-    pure (Usize.ofNatCore r.val (by scalar_tac))
+    .ok (Usize.ofNatCore r.val (by scalar_tac))
 
 -- PROGRESS LEMMAS
 
