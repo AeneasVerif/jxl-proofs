@@ -127,7 +127,7 @@ theorem ofOption_spec (x: Option a) (e: Error) (h: x.isSome): ofOption x e ⦃ r
 @[step]
 theorem read_u64_spec (bytes: Slice Std.U8) (h: bytes.len ≥ Usize.ofNat 8): read_u64 bytes ⦃ r => True ⦄ := by
   unfold read_u64
-  step* 
+  step*
   <;> grind
 
 theorem or_lt_pow2 (x y: U64) (h: x < 64#u64 ∧ y < 64#u64): x ||| y < 64#u64 := by
@@ -139,8 +139,8 @@ theorem refill_does_not_panic (self: BitReader) (h: self.invariant): self.refill
   step*
   <;> try grind
   . cases System.Platform.numBits_eq <;> grind
-  . simp
-    scalar_tac
+  . simp; scalar_tac
+  . scalar_tac
   . have : self.bits_in_buf ||| 56#usize < 64#usize := by apply or_lt_pow2_usize; grind
     grind
 
@@ -173,7 +173,7 @@ theorem consum_optimistic_does_not_panic (self : BitReader) (num : Usize) (h: nu
 @[step]
 theorem peek_does_not_panic (self : BitReader) (num : Usize) (h: num <= MAX_BITS_PER_CALL): self.peek num ⦃ r => True ⦄ := by
   unfold BitReader.peek
-  step*
+  step; split <;> step*
   . grind
   all_goals rw [i4_post1]; apply shift_gt_1; scalar_tac
 
@@ -228,9 +228,10 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
     simp [-entropy_coding.ans.Bucket.invariant] at inv
     rcases inv with ⟨ inv0, inv1, inv2 ⟩
     rw [bucket_index_eq]
-    step*
+    iterate 4 step
     . have : (self.buckets.val).length.isPowerOfTwo := ⟨ _, inv1 ⟩
       grind
+    split <;> step* <;> try grind
     . have : i4.val < 2^16 := by bv_tac 32
       have : pos.val < 2^12 := by bv_tac 32
       grind
@@ -247,4 +248,5 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
       have : offset.val <= 2^12 - 1 := by
         have : map_to_alias.val = 0 ∨ map_to_alias.val = 1 := by scalar_tac
         cases this <;> scalar_tac
+      have : pos.val < 2^12 := by bv_tac 32
       scalar_tac
