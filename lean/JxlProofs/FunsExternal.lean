@@ -3,28 +3,35 @@
 -- This is a template file: rename it to "FunsExternal.lean" and fill the holes.
 import Aeneas
 import JxlProofs.Types
-open Aeneas Aeneas.Std Result Error
+open Aeneas Aeneas.Std Result ControlFlow Error
 set_option linter.dupNamespace false
 set_option linter.hashCommand false
 set_option linter.unusedVariables false
+
+/- You can set the `maxHeartbeats` value with the `-max-heartbeats` CLI option -/
+set_option maxHeartbeats 1000000
+
+/- You can set the `maxRecDepth` value with the `-max-recdepth` CLI option -/
+set_option maxRecDepth 2048
 open jxl
 
-/- [byteorder::{byteorder::ByteOrder for byteorder::LittleEndian}::read_u64]:
-   Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/byteorder-1.5.0/src/lib.rs', lines 2138:4-2138:34
-   Name pattern: [byteorder::{byteorder::ByteOrder<byteorder::LittleEndian>}::read_u64] -/
+/-- [byteorder::{impl byteorder::ByteOrder for byteorder::LittleEndian}::read_u64]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/byteorder-1.5.0/src/lib.rs', lines 2138:4-2138:34
+    Name pattern: [byteorder::{byteorder::ByteOrder<byteorder::LittleEndian>}::read_u64]
+    Visibility: public -/
 @[rust_fun
   "byteorder::{byteorder::ByteOrder<byteorder::LittleEndian>}::read_u64"]
 def byteorder.LittleEndian.Insts.ByteorderByteOrder.read_u64 (bytes: Slice Std.U8) : Result Std.U64 :=
   do
-    let ⟨ b0, _ ⟩ ← Result.ofOption (bytes.val[0]?) panic
-    let ⟨ b1, _ ⟩ ← Result.ofOption (bytes.val[1]?) panic
-    let ⟨ b2, _ ⟩ ← Result.ofOption (bytes.val[2]?) panic
-    let ⟨ b3, _ ⟩ ← Result.ofOption (bytes.val[3]?) panic
-    let ⟨ b4, _ ⟩ ← Result.ofOption (bytes.val[4]?) panic
-    let ⟨ b5, _ ⟩ ← Result.ofOption (bytes.val[5]?) panic
-    let ⟨ b6, _ ⟩ ← Result.ofOption (bytes.val[6]?) panic
-    let ⟨ b7, _ ⟩ ← Result.ofOption (bytes.val[7]?) panic
+    let b0 ← Result.ofOption (a := Std.U8) (bytes.val[0]?) panic
+    let b1 ← Result.ofOption (a := Std.U8) (bytes.val[1]?) panic
+    let b2 ← Result.ofOption (a := Std.U8) (bytes.val[2]?) panic
+    let b3 ← Result.ofOption (a := Std.U8) (bytes.val[3]?) panic
+    let b4 ← Result.ofOption (a := Std.U8) (bytes.val[4]?) panic
+    let b5 ← Result.ofOption (a := Std.U8) (bytes.val[5]?) panic
+    let b6 ← Result.ofOption (a := Std.U8) (bytes.val[6]?) panic
+    let b7 ← Result.ofOption (a := Std.U8) (bytes.val[7]?) panic
     let b: Std.U64 := UScalar.ofNatCore (
       b0 * 2^0  + b1 * 2^8 +  b2 * 2^16 + b3 * 2^24 +
       b4 * 2^32 + b5 * 2^40 + b6 * 2^48 + b7 * 2^56) (by scalar_tac)
-    Result.ok b
+    ok b
