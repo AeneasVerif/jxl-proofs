@@ -31,13 +31,6 @@ def entropy_coding.ans.AnsHistogram.invariant (self: AnsHistogram) :=
 deriving instance Inhabited for AnsHistogram
 deriving instance Inhabited for Bucket
 
-def bucket_index (hist: AnsHistogram) (state: U32): Result Std.Usize :=
-  do
-    let r ← (state &&& U32.ofNat 0xfff) >>> hist.log_bucket_size
-    -- avoids progress* being blocked because of an automatically-inserted
-    -- coercion that is not recognized by the implementation of progress*
-    .ok (Usize.ofNatCore r.val (by scalar_tac))
-
 -- PROGRESS LEMMAS
 
 @[simp,scalar_tac x.val * y.val]
@@ -185,36 +178,33 @@ lemma ad_hoc (x: U32): x.val &&& 0xfff = x.val % 2^12 :=
     have : 0xfff = 2^12 - 1 := by rfl
     rw [this, Nat.and_two_pow_sub_one_eq_mod]
 
+-- def bucket_index (hist: AnsHistogram) (state: U32): Result Std.Usize :=
+--   do
+--     let r ← (state &&& U32.ofNat 0xfff) >>> hist.log_bucket_size
+--     -- avoids progress* being blocked because of an automatically-inserted
+--     -- coercion that is not recognized by the implementation of progress*
+--     .ok (Usize.ofNatCore r.val (by scalar_tac))
+
+#decompose AnsHistogram.read read_eq
+  letRange 0 3 => bucket_index
+
+#print bucket_index
+
 @[step]
 theorem bucket_index_is_in_bounds (hist: AnsHistogram) (inv: hist.invariant) (state: U32):
-    bucket_index hist state ⦃ idx => idx < hist.buckets.len ⦄
+    bucket_index hist state ⦃ (_, idx) => idx < hist.buckets.len ⦄
 :=
   by
     unfold bucket_index
     simp_all [global_simps]
     step*
-    simp[*]
+    -- simp[*]
     have : (state.val % 4096) >>> hist.log_bucket_size.val < 2 ^ (12 - hist.log_bucket_size.val) := by
       rw [Nat.shiftRight_eq_div_pow]
       apply Nat.div_lt_of_lt_mul
       rw [← Nat.pow_add, Nat.add_sub_of_le] <;> scalar_tac
+    simp [this]
     assumption
-
-theorem bucket_index_eq {a} (self: AnsHistogram) (i: U32) (f: Usize -> U32 -> Result a):
-    (do
-      let i1 ← lift (i &&& 4095#u32)
-      let i2 ← i1 >>> self.log_bucket_size
-      let i3 ← lift (UScalar.cast UScalarTy.Usize i2)
-      f i3 i1) =
-    (do
-      let i3 ← bucket_index self i
-      f i3 (i &&& 4095#u32))
-  :=
-  by
-    simp [bucket_index,lift]
-    intros v h
-    congr
-    scalar_tac
 
 set_option maxRecDepth 200
 
@@ -223,11 +213,10 @@ theorem read_does_not_panic (self : entropy_coding.ans.AnsHistogram) (inv: self.
     self.read br state ⦃ r => True ⦄
 :=
   by
-    unfold entropy_coding.ans.AnsHistogram.read
+    rw [read_eq]
     have inv2 := inv
     simp [-entropy_coding.ans.Bucket.invariant] at inv
     rcases inv with ⟨ inv0, inv1, inv2 ⟩
-    rw [bucket_index_eq]
     iterate 4 step
     . have : (self.buckets.val).length.isPowerOfTwo := ⟨ _, inv1 ⟩
       grind
