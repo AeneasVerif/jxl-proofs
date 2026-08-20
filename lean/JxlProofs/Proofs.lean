@@ -178,13 +178,6 @@ lemma ad_hoc (x: U32): x.val &&& 0xfff = x.val % 2^12 :=
     have : 0xfff = 2^12 - 1 := by rfl
     rw [this, Nat.and_two_pow_sub_one_eq_mod]
 
--- def bucket_index (hist: AnsHistogram) (state: U32): Result Std.Usize :=
---   do
---     let r ← (state &&& U32.ofNat 0xfff) >>> hist.log_bucket_size
---     -- avoids progress* being blocked because of an automatically-inserted
---     -- coercion that is not recognized by the implementation of progress*
---     .ok (Usize.ofNatCore r.val (by scalar_tac))
-
 #decompose AnsHistogram.read read_eq
   letRange 0 3 => bucket_index
 
