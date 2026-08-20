@@ -192,7 +192,7 @@ lemma ad_hoc (x: U32): x.val &&& 0xfff = x.val % 2^12 :=
 
 @[step]
 theorem bucket_index_is_in_bounds (hist: AnsHistogram) (inv: hist.invariant) (state: U32):
-    bucket_index hist state ⦃ (_, idx) => idx < hist.buckets.len ⦄
+    bucket_index hist state ⦃ (idx, i1) => i1 < hist.buckets.len ∧ idx ≤ 4095#u32 ⦄
 :=
   by
     unfold bucket_index
