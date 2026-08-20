@@ -196,15 +196,15 @@ theorem bucket_index_is_in_bounds (hist: AnsHistogram) (inv: hist.invariant) (st
 :=
   by
     unfold bucket_index
-    simp_all [global_simps]
+    simp at inv
     step*
-    -- simp[*]
     have : (state.val % 4096) >>> hist.log_bucket_size.val < 2 ^ (12 - hist.log_bucket_size.val) := by
       rw [Nat.shiftRight_eq_div_pow]
       apply Nat.div_lt_of_lt_mul
       rw [← Nat.pow_add, Nat.add_sub_of_le] <;> scalar_tac
-    simp [this]
-    assumption
+    have : i1.val = (state.val % 4096) >>> hist.log_bucket_size.val := by
+      simp_all
+    scalar_tac
 
 set_option maxRecDepth 200
 
